@@ -59,7 +59,7 @@ def pre_process_response(guess: str, response: str) -> str:
 
 def delete_mismatch(answers: List[str], guess: str, response: str) -> List[str]:
     response = pre_process_response(guess, response)
-    print(f"delete_mismatch: pre_process_response={response}")
+    # print(f"delete_mismatch: pre_process_response={response}")
 
     def match(word: str) -> bool:
         nonlocal response, guess
@@ -105,7 +105,7 @@ def is_used(used, word):
     return any(c in used for c in word)
 
 
-def get_most_common_word(word_list):
+def get_most_common_word(word_list, print_stats=False):
     occurs = [0] * 26
     for word in word_list:
         for c in word.lower():
@@ -113,8 +113,9 @@ def get_most_common_word(word_list):
     letter_statistics = [(chr(ord('a') + i), occurs[i]) for i in range(26)]
     letter_statistics.sort(reverse=True, key=lambda x: x[1])
     graph = Pyasciigraph()
-    for line in graph.graph('Letter Occurs', [l for l in letter_statistics if l[1] != 0]):
-        print(line)
+    if print_stats:
+        for line in graph.graph('Letter Occurs', [l for l in letter_statistics if l[1] != 0]):
+            print(line)
 
     new_letter_statistics = [(letter_statistics[i][0].upper(), 1 << (26 - i - 1)) for i in range(26)]
     letter_statistics = new_letter_statistics
@@ -164,11 +165,47 @@ def list_common_words(word_list):
         print(score, word)
 
 
+def match(answer, guess) -> str:
+    ans = [0] * len(guess)
+    for i, g in enumerate(guess):
+        if g == answer[i]:
+            ans[i] = 2
+        elif g in answer:
+            ans[i] = 1
+    return "".join(str(a) for a in ans)
+
+
+def guess(word_list: List[str], answer: str) -> str:
+    history = []
+    answer_list = list(word_list)
+    while len(answer_list) > 1:
+        guess_word = get_most_common_word(answer_list)
+        history.append(guess_word)
+        if guess_word == answer:
+            break
+        user_input = match(answer, guess_word)
+        answer_list = delete_mismatch(answer_list, guess_word, user_input)
+    if len(answer_list) == 1:
+        history.append(answer_list[0])
+    return ",".join(history)
+
+
+def performance_test(word_list: List[str]) -> List[List[str]]:
+    guesses = []
+    for w in word_list:
+        guess_history = guess(word_list, w)
+        print(guess_history)
+        guesses.append(guess_history)
+
+    return guesses
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--statistics", action="store_true", help="Show the statistics of letters")
     parser.add_argument("--list-words", help="List the words which include the letters")
     parser.add_argument("--list-common-words", action="store_true", help="List word by most common letters first")
+    parser.add_argument("--performance-test", action="store_true", help="Try to guess all answers")
     args = parser.parse_args()
     if args.statistics:
         word_list = read_dict(DICT_ALLOWED_GUESS)
@@ -182,6 +219,16 @@ if __name__ == '__main__':
         word_list = read_dict(DICT_ANSWERS)
         print_statistics(word_list)
         list_common_words(word_list)
+        sys.exit(0)
+    if args.performance_test:
+        word_list = read_dict(DICT_ANSWERS)
+        guesses = performance_test(word_list)
+        guess_times = [g.count(",") + 1 for g in guesses]
+        print(f"total={len(guess_times)}, average guess={sum(guess_times) / len(guess_times):.2f}")
+        letter_statistics = [(str(i), guess_times.count(i)) for i in range(1, max(guess_times) + 1)]
+        graph = Pyasciigraph()
+        for line in graph.graph('Guess Time Stats', letter_statistics):
+            print(line)
         sys.exit(0)
 
     print(f"Instruction")
