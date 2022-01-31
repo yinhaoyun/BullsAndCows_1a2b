@@ -15,11 +15,7 @@ VOWEL = "aeiou"
 COMMON_CONSONANT = "bcdfghjklmnpqrstvwxyz"
 CONSONANT = "bcdfghjklmnpqrstvwxyz"
 BEST_GUESS = ["BUMPH", "KEDGY", "CLINT"]
-
-# -65011712 AEROS
-# -1970176 LINTY
-# -58880 BUMPH
-
+MOST_COMMON_COVERAGE = ["AEROS", "LINTY", "BUMPH"]
 
 def read_dict(filename: str) -> List[str]:
     file = open(filename, 'r')
@@ -178,12 +174,20 @@ def match(answer, guess) -> str:
 def guess(word_list: List[str], answer: str) -> str:
     history = []
     answer_list = list(word_list)
+    hit = set()
     while len(answer_list) > 1:
         guess_word = get_most_common_word(answer_list)
+        if len(answer_list) < 100 or len(hit) >= 4:
+            pass
+        elif len(history) < len(MOST_COMMON_COVERAGE):
+            guess_word = MOST_COMMON_COVERAGE[len(history)]
         history.append(guess_word)
         if guess_word == answer:
             break
         user_input = match(answer, guess_word)
+        for i, u in enumerate(user_input):
+            if u in "12":
+                hit |= {guess_word[i]}
         answer_list = delete_mismatch(answer_list, guess_word, user_input)
     if len(answer_list) == 1:
         history.append(answer_list[0])
@@ -225,6 +229,9 @@ if __name__ == '__main__':
         guesses = performance_test(word_list)
         guess_times = [g.count(",") + 1 for g in guesses]
         print(f"total={len(guess_times)}, average guess={sum(guess_times) / len(guess_times):.2f}")
+        fail_times = len([g for g in guess_times if g > 6])
+        fail_rate = fail_times / len(guess_times)
+        print(f"fail times={fail_times}, rate={fail_rate * 100:.2f}%")
         letter_statistics = [(str(i), guess_times.count(i)) for i in range(1, max(guess_times) + 1)]
         graph = Pyasciigraph()
         for line in graph.graph('Guess Time Stats', letter_statistics):
